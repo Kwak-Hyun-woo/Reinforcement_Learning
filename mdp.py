@@ -161,9 +161,10 @@ class LOLUserMDP:
             counter_score = counter.iloc[0]
         else:
             counter_score = 0
-        
+
+        str_position = str(int(position))
         try:
-            meta_score = meta_info.loc[action, position]
+            meta_score = meta_info.loc[action, str_position]
         except KeyError:
             #print("KeyError: The specified key does not exist.")
             meta_score = 0 
