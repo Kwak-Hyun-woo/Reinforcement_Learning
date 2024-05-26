@@ -1,4 +1,5 @@
 from mdp import MovielensUserMDP
+from mdp import LOLUserMDP
 import numpy as np
 import random
 from matrix_factorization import construct_user_latent_state, run_matrix_factorization
@@ -25,7 +26,7 @@ def run_test_rand(data, agent, T):
     return np.mean(rewards), np.std(rewards)
 
 def run_test(data, V, agent, T):
-    with open("./data/lol/data_frame_match_1.pickle", "rb") as fr:
+    with open("/content/drive/MyDrive/Colab_Notebooks/Reinforcement_Learning/data/lol/data_frame_match_1.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
     Runs a test on the given data.
@@ -35,7 +36,7 @@ def run_test(data, V, agent, T):
     :param T: the amount of time steps per user
     :return: mean and standard deviation of the observed rewards
     """
-    available_mdps = {user_id: MovielensUserMDP(user_id, data[data['user_id'] == user_id], V.shape[1], agent.device)
+    available_mdps = {user_id: LOLUserMDP(user_id, data[data['user_id'] == user_id], V.shape[1], agent.device)
                       for user_id in list(data['user_id'].unique())}
     # specify second dimension as 1 due to matrix operations
     user_vectors = {user_id: np.zeros((64, 1)) for user_id in available_mdps.keys()}
@@ -48,7 +49,7 @@ def run_test(data, V, agent, T):
         with torch.no_grad():
             for t in range(T-1):
                 a_t = agent.action(user_mdp, s_t)
-                r_t = user_mdp.reward(action=a_t)
+                r_t = user_mdp.reward(action=a_t, state = s_t)
                 s_tp = construct_user_latent_state(s_t[:len(user_vectors[user_id])], V, a_t, r_t)
                 s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user_id][t+1]), axis=1)])
                 rewards.append(r_t)
@@ -58,7 +59,7 @@ def run_test(data, V, agent, T):
 
 
 def train(data, agent, V, iterations, T):
-    with open("./data/lol/data_frame_match_1.pickle", "rb") as fr:
+    with open("/content/drive/MyDrive/Colab_Notebooks/Reinforcement_Learning/data/lol/data_frame_match_1.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
     Trains the agent on the given data.
@@ -72,7 +73,7 @@ def train(data, agent, V, iterations, T):
     if type(agent) == RandomAgent:
         return  # no training required
 
-    available_mdps = {user_id: MovielensUserMDP(user_id, data[data['user_id'] == user_id], V.shape[1], agent.device)
+    available_mdps = {user_id: LOLUserMDP(user_id, data[data['user_id'] == user_id], V.shape[1], agent.device)
                       for user_id in list(data['user_id'].unique())}
     #specify second dimension as 1 due to matrix operations
     user_vectors = {user_id: np.zeros((64, 1)) for user_id in available_mdps.keys()}
@@ -92,7 +93,7 @@ def train(data, agent, V, iterations, T):
         
         for t in range(0, T-1):
             a_t = agent.action(user_mdp, s_t)
-            r_t = user_mdp.reward(action=a_t)
+            r_t = user_mdp.reward(action=a_t, state = s_t)
             s_tp = construct_user_latent_state(s_t[:len(user_vector)], V, a_t, r_t)
             #breakpoint()
             s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user][t+1]), axis=1)])
