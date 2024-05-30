@@ -34,8 +34,10 @@ def generate_train_test_splits(data_path, number_splits, min_interactions_user, 
     # transforms the ids according to their order
     unique_items = df.item_id.unique()
     id_mapping_dict = {k: v for v, k in enumerate(unique_items)}
-    df.item_id = df.item_id.apply(lambda x: id_mapping_dict[x])
-    total_items = len(unique_items)
+    #df.item_id = df.item_id.apply(lambda x: id_mapping_dict[x])
+    #df.item_id = df.item_id.apply(lambda x: x-1)
+    #total_items = len(unique_items)
+    total_items = 167
 
     unique_users = df.user_id.unique()
     user_mapping_dict = {k:v for v, k in enumerate(unique_users)}
@@ -55,5 +57,6 @@ def generate_train_test_splits(data_path, number_splits, min_interactions_user, 
         train_df, test_df = df[df.user_id.isin(train_users)], df[~df.user_id.isin(train_users)]
         train_test_splits.append((train_df, test_df))
         assert not (set(train_df.user_id.unique()) & set(test_df.user_id.unique()))
+
 
     return train_test_splits, (id_mapping_dict, user_mapping_dict), (total_items, total_users)
