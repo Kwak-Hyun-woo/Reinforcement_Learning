@@ -26,6 +26,7 @@ def run_test_rand(data, agent, T):
     return np.mean(rewards), np.std(rewards)
 
 def run_test(data, V, agent, T):
+
     with open("./data/lol/data_frame_match_merged.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
@@ -57,8 +58,47 @@ def run_test(data, V, agent, T):
 
     return np.mean(rewards), np.std(rewards)
 
+def run_final_test(data, V, agent, T):
+    with open("/home/dgist/hyemin/RL/Reinforcement_Learning/Reinforcement_Learning/data/lol/data_frame_match_merged.pickle", "rb") as fr:
+        champs_numbering_file  = pickle.load(fr)
+    """
+    Runs a test on the given data.
+    :param data: test data
+    :param V: the item representation vectors
+    :param agent: the agent
+    :param T: the amount of time steps per user
+    :return: mean and standard deviation of the observed rewards
+    """
+    available_mdps = {user_id: LOLUserMDP(user_id, data[data['user_id'] == user_id], V.shape[1], agent.device)
+                      for user_id in list(data['user_id'].unique())}
+    # specify second dimension as 1 due to matrix operations
+    user_vectors = {user_id: np.zeros((64, 1)) for user_id in available_mdps.keys()}
+    rewards = []
+    logged_data = {}
+    agent.enter_test_mode()
+    for user_id in available_mdps.keys():
+        user_log = []
+        user_mdp = available_mdps[user_id]
+        match_data = champs_numbering_file
+        s_t = np.concatenate([user_vectors[user_id], np.expand_dims(np.array(match_data[user_id][0]), axis=1)])
+        with torch.no_grad():
+            for t in range(T-1):
+                cur_match = s_t.squeeze()[-10:]
+                a_t = agent.action(user_mdp, s_t)
+                recommended_champ = a_t
+                r_t = user_mdp.reward(action=a_t, state = s_t)
+                cur_reward = r_t
+                s_tp = construct_user_latent_state(s_t[:len(user_vectors[user_id])], V, a_t, r_t)
+                s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user_id][t+1]), axis=1)])
+                rewards.append(r_t)
+                user_log.append((cur_match, recommended_champ, cur_reward))
+                s_t = s_tp1
+        logged_data[user_id] = user_log
+
+    return np.mean(rewards), np.std(rewards), logged_data
 
 def train(data, agent, V, iterations, T):
+
     with open("./data/lol/data_frame_match_merged.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
@@ -124,11 +164,14 @@ def run_cross_validation(dat, train_iter, T, agent_cls, agent_params, mf_params)
         if agent_cls != RandomAgent:
             U, V, ids = run_matrix_factorization(d[0], agent.out_size, *mf_params)
             train(d[0], agent, V, train_iter, T)
-            mean, std = run_test(d[1], V, agent, T)
+            #mean, std = run_test(d[1], V, agent, T)
+            mean, std, logged_data = run_final_test(d[1], V, agent, T)
         else:
             mean, std = run_test_rand(d[0], agent, T)
         means.append(mean)
 
         print(f'In fold {i+1}: Mean {mean}')
+        print(f'logged_data: \n')
+        print(logged_data[:10])
     print(f'Avg. Mean: {np.mean(means)}, Std.: {np.std(means)}')
     return np.mean(means)
