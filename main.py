@@ -9,7 +9,7 @@ from agent import DQNAgent, RandomAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_iterations', type=int, help='number of iterations', default=2000)
-    parser.add_argument('--path', type=str, default='data/lol/data_frame_new_1.pickle', help='file location')
+    parser.add_argument('--path', type=str, default='data/lol/data_frame_new_merged.pickle', help='file location')
     parser.add_argument('--data_type', type=str, default='lol', help='Data passed. Currently supports [ml1m].')
     parser.add_argument('--agent_type', type=str, default='dqn',
                         help='Agent to be used. Currently supports [rand, dqn].')

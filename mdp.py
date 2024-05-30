@@ -2,7 +2,8 @@ import torch
 import pandas as pd
 import numpy as np
 
-data_path = '/home/dgist/hyemin/RL/Reinforcement_Learning/Reinforcement_Learning/data/lol'
+
+data_path = './data/lol'
 pairing_bot_sup = pd.read_excel(data_path + '/pairing_bot_sup.xlsx')
 pairing_jung_sup = pd.read_excel(data_path + '/pairing_jung_sup.xlsx')
 pairing_mid_jung = pd.read_excel(data_path + '/pairing_mid_jung.xlsx')

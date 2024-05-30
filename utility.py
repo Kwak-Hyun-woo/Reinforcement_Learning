@@ -26,7 +26,8 @@ def run_test_rand(data, agent, T):
     return np.mean(rewards), np.std(rewards)
 
 def run_test(data, V, agent, T):
-    with open("/home/dgist/hyemin/RL/Reinforcement_Learning/Reinforcement_Learning/data/lol/data_frame_match_merged.pickle", "rb") as fr:
+
+    with open("./data/lol/data_frame_match_merged.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
     Runs a test on the given data.
@@ -97,7 +98,8 @@ def run_final_test(data, V, agent, T):
     return np.mean(rewards), np.std(rewards), logged_data
 
 def train(data, agent, V, iterations, T):
-    with open("/home/dgist/hyemin/RL/Reinforcement_Learning/Reinforcement_Learning/data/lol/data_frame_match_merged.pickle", "rb") as fr:
+
+    with open("./data/lol/data_frame_match_merged.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
     """
     Trains the agent on the given data.
