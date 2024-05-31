@@ -86,10 +86,10 @@ if __name__ == "__main__":
 
       test_dat.columns = ['user_id', 'item_id', 'rating']
       U, V, ids = run_matrix_factorization(test_dat, agent.out_size, device, *mf_params)
-      test_reward_mean, test_reward_std, logged_data = run_final_test(test_dat, V, agent, args.T)
+      test_reward_mean, test_reward_std, logged_data = run_final_test(test_dat, V, agent, 50)
       print(f"test_reward_mean: {test_reward_mean}")
       print(f"test_reward_std: {test_reward_std}")
-      print(f"logged_data: {logged_data}")
+      print(f"logged_data: {logged_data}")      
 
       with open(f"./data/lol/result/test_result.pickle", "wb") as fw:
         pickle.dump([test_reward_mean, test_reward_std, logged_data], fw)

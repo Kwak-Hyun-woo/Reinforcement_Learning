@@ -102,10 +102,8 @@ def run_final_test(data, V, agent, T):
             for t in range(T-1):
                 cur_match = s_t.squeeze()[-10:]
                 # 본인 챔피언 선택 정보 추가
-                if t == 0:
-                  cur_match = np.append(cur_match, s_t_seleted_champ)
-                else:
-                  cur_match = np.append(cur_match, match_data[user_id][t+1][0])
+                cur_selected_champ = match_data[user_id][t+1][0]
+                cur_match = np.append(cur_match, cur_selected_champ)
 
                 # 변환
                 cur_match_list = cur_match.tolist()
@@ -117,9 +115,12 @@ def run_final_test(data, V, agent, T):
                     continue
                   cur_match_processed.append(reverse_champs_numbering[number])
 
-                a_t = agent.action(user_mdp, s_t)
+                a_t = agent.action(user_mdp, s_t, user_id)
+              
                 recommended_champ = reverse_champs_numbering[a_t]
-                r_t = user_mdp.reward(action=a_t, state = s_t)
+                r_t = user_mdp.reward(action=a_t, state = s_t)  
+                # print(f"user_id: {user_id}, t: {t}, cur_champ: {cur_selected_champ}, game score: {game_score}, preference_score: {preference_score}")
+
                 cur_reward = r_t
                 rating = user_mdp.rewards_map.get(a_t)
                 if (rating==None):
@@ -127,8 +128,9 @@ def run_final_test(data, V, agent, T):
                 s_tp = construct_user_latent_state(s_t[:len(user_vectors[user_id])], V, a_t, rating)
                 s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user_id][t+1][1:]), axis=1)])
                 rewards.append(r_t)
-                user_log.append((cur_match_processed, recommended_champ, cur_reward))
                 s_t = s_tp1
+                user_log.append((cur_match_processed, recommended_champ, cur_reward))
+           
         if (count <= 5):
             logged_data[user_id] = user_log
             count += 1

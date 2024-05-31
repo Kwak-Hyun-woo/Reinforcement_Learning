@@ -61,7 +61,7 @@ class DQNAgent(Agent):
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
         self.loss_fn = torch.nn.SmoothL1Loss()
 
-    def action(self, mdp, x):
+    def action(self, mdp, x, user_id = 0):
         """selects the best action (according to q-value) which is present in the user's mdp"""
         # actions are chosen according to the policy
         game_state = x[-10:]
@@ -77,13 +77,32 @@ class DQNAgent(Agent):
         if (position == 5):
             action_mask = np.array([122, 20, 129, 161, 116, 16, 32, 78, 75, 35, 155, 126, 57, 10, 113, 134, 85, 15, 74, 17, 70, 80, 125, 101, 132, 104, 165, 5, 105, 13, 83, 114])
         new_action_vector = [x - 1 for x in action_mask]
+
+        # 공통 champion 구하기
+        set1 = set(new_action_vector)
+        set2 = set(mdp.action_space)
+        
+        avail_actions = list(set1.intersection(set2))
+        # print(f"user_id: {user_id} => avail_actions: {avail_actions}")
+        # if user_id == 1:
+        #   print(set1)
+        #   print(set2)
+        #   print(avail_actions)
+        if not avail_actions:
+          avail_actions = new_action_vector
+
+        
+
         if self.device is not None:
             # create numpy vector of interacted with items
             action_vector = torch.zeros(167).bool().to(self.device)
-            action_vector[(new_action_vector)] = 1
+            action_vector[(avail_actions)] = 1
+
+        # breakpoint()
 
         if not self.test_mode and random.uniform(0, 1) < self.epsilon:
-            a_t = random.choice(new_action_vector)
+            a_t = random.choice(avail_actions)
+            #a_t = random.choice(new_action_vector)
             #a_t = random.choice(mdp.action_space)
             return a_t  # return a random possible action from the user's mdp to explore
         else:

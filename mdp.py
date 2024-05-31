@@ -61,6 +61,7 @@ class LOLUserMDP:
         self.user_id = user_id
         self.game_history = game_history
         
+        
         # check items only interacted with once
         assert len(list(self.game_history['item_id'].unique())) == \
                len(self.game_history['item_id'].to_list())
@@ -74,6 +75,10 @@ class LOLUserMDP:
             # create numpy vector of interacted with items
             self.action_vector = torch.zeros(total_items).bool().to(device)
             self.action_vector[self.action_space] = 1
+        # if user_id == 1:
+        #   print(self.game_history)
+        #   breakpoint()
+        #breakpoint()
         
 
     def reward(self, action, state):
@@ -186,7 +191,7 @@ class LOLUserMDP:
         min_value = 0
 
         # zero division prevention
-        cur_reward = self.rewards_map.get(str(action), 0)
+        cur_reward = self.rewards_map.get((action-1), 0)
         if (min_value == max_value):
             preference_score = min_value
         else: 
@@ -195,4 +200,4 @@ class LOLUserMDP:
         #print(preference_score)
         total_reward = weight_game * game_score + weight_preference * preference_score
         #print('game_score : %f and preference_score %f', game_score, preference_score)
-        return total_reward.astype(np.float32)
+        return total_reward.astype(np.float32) #, game_score, preference_score
