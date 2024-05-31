@@ -6,7 +6,8 @@ from replay_buffer import ReplayBuffer, Transition
 import torch
 from copy import deepcopy
 import numpy as np
-
+import time
+from datetime import datetime
 
 class Agent(abc.ABC):
 
@@ -40,8 +41,8 @@ class RandomAgent(Agent):
 
 class DQNAgent(Agent):
 
-    def __init__(self, emb_size, hidden_size, out_size, device, mapping_dict, batch_size=32, gamma=0.2,
-                 epsilon=0.1, replay_buffer_size=1000, lr=0.01):
+    def __init__(self, emb_size, hidden_size, out_size, device, batch_size=32, gamma=0.2,
+                 epsilon=0.1, replay_buffer_size=1000, lr=0.01):  # param mapping_dict removed 
         super().__init__()
         self.emb_size = emb_size
         self.hidden_size = hidden_size
@@ -52,7 +53,7 @@ class DQNAgent(Agent):
         self.epsilon = epsilon
         self.device = device
         self.test_mode = None
-        self.mapping_dict = mapping_dict
+        # self.mapping_dict = mapping_dict
 
         self.policy = DQNet(emb_size, hidden_size, out_size).to(device=self.device)
         self.target = DQNet(emb_size, hidden_size, out_size).to(device=self.device)
@@ -139,6 +140,12 @@ class DQNAgent(Agent):
     def update_target(self):
         self.target = deepcopy(self.policy)
 
+    def save_model(self, data_path = "./data/lol/checkpoints/"):
+        torch.save({
+          'policy': self.policy.state_dict(),
+          'target': self.target.state_dict(),
+          'optimizer': self.optimizer.state_dict()
+        },data_path + "checkpoint" +'all.tar')
 
 class BDQNAgent(DQNAgent):
     def __init__(self):

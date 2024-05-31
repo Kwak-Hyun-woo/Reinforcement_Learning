@@ -46,7 +46,13 @@ def run_test(data, V, agent, T):
     for user_id in available_mdps.keys():
         user_mdp = available_mdps[user_id]
         match_data = champs_numbering_file
-        s_t = np.concatenate([user_vectors[user_id], np.expand_dims(np.array(match_data[user_id][0]), axis=1)])
+        try:
+          s_t = np.concatenate([user_vectors[user_id], np.expand_dims(np.array(match_data[user_id][0]), axis=1)])
+        except:
+          print(f"user_id: {user_id}")
+          continue
+          
+          
         with torch.no_grad():
             for t in range(T-1):
                 a_t = agent.action(user_mdp, s_t)
@@ -59,8 +65,12 @@ def run_test(data, V, agent, T):
     return np.mean(rewards), np.std(rewards)
 
 def run_final_test(data, V, agent, T):
-    with open("/home/dgist/hyemin/RL/Reinforcement_Learning/Reinforcement_Learning/data/lol/data_frame_match_merged.pickle", "rb") as fr:
-        champs_numbering_file  = pickle.load(fr)
+    with open("./data/lol/data_frame_match_test.pickle", "rb") as fr:
+        data_frame_match_test  = pickle.load(fr)
+    
+    with open("./data/lol/champs_numbering.pickle", "rb") as fr:
+        champs_numbering  = pickle.load(fr)
+    reverse_champs_numbering = {v:k for k,v in champs_numbering.items()}
     """
     Runs a test on the given data.
     :param data: test data
@@ -76,28 +86,56 @@ def run_final_test(data, V, agent, T):
     rewards = []
     logged_data = {}
     agent.enter_test_mode()
+    count = 0
     for user_id in available_mdps.keys():
         user_log = []
         user_mdp = available_mdps[user_id]
-        match_data = champs_numbering_file
-        s_t = np.concatenate([user_vectors[user_id], np.expand_dims(np.array(match_data[user_id][0]), axis=1)])
+        match_data = data_frame_match_test
+        # breakpoint()
+        try:
+          s_t = np.concatenate([user_vectors[user_id], np.expand_dims(np.array(match_data[user_id][0][1:]), axis=1)])
+          s_t_seleted_champ = match_data[user_id][0][0]
+        except:
+          print(f"user_id: {user_id}")
+          continue
         with torch.no_grad():
             for t in range(T-1):
                 cur_match = s_t.squeeze()[-10:]
+                # 본인 챔피언 선택 정보 추가
+                if t == 0:
+                  cur_match = np.append(cur_match, s_t_seleted_champ)
+                else:
+                  cur_match = np.append(cur_match, match_data[user_id][t+1][0])
+
+                # 변환
+                cur_match_list = cur_match.tolist()
+                
+                cur_match_processed = []
+                for idx, number in enumerate(cur_match_list):
+                  if idx == 9:
+                    cur_match_processed.append(int(number))
+                    continue
+                  cur_match_processed.append(reverse_champs_numbering[number])
+
                 a_t = agent.action(user_mdp, s_t)
-                recommended_champ = a_t
+                recommended_champ = reverse_champs_numbering[a_t]
                 r_t = user_mdp.reward(action=a_t, state = s_t)
                 cur_reward = r_t
-                s_tp = construct_user_latent_state(s_t[:len(user_vectors[user_id])], V, a_t, r_t)
-                s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user_id][t+1]), axis=1)])
+                rating = user_mdp.rewards_map.get(a_t)
+                if (rating==None):
+                    rating = 0
+                s_tp = construct_user_latent_state(s_t[:len(user_vectors[user_id])], V, a_t, rating)
+                s_tp1 = np.concatenate([s_tp, np.expand_dims(np.array(match_data[user_id][t+1][1:]), axis=1)])
                 rewards.append(r_t)
-                user_log.append((cur_match, recommended_champ, cur_reward))
+                user_log.append((cur_match_processed, recommended_champ, cur_reward))
                 s_t = s_tp1
-        logged_data[user_id] = user_log
+        if (count <= 5):
+            logged_data[user_id] = user_log
+            count += 1
 
     return np.mean(rewards), np.std(rewards), logged_data
 
-def train(data, agent, V, iterations, T):
+def train(data, agent, V, iterations, T, nth_fold):
 
     with open("./data/lol/data_frame_match_merged.pickle", "rb") as fr:
         champs_numbering_file  = pickle.load(fr)
@@ -109,6 +147,7 @@ def train(data, agent, V, iterations, T):
     :param iterations: number of training iterations
     :param T: length of a training iteration
     """
+    avg_reward_log = []
 
     if type(agent) == RandomAgent:
         return  # no training required
@@ -144,11 +183,16 @@ def train(data, agent, V, iterations, T):
 
             agent.optimize()
         rolling_reward = 0.99 * rolling_reward + 0.01 * np.mean(rewards)
+        avg_reward_log.append(rolling_reward)
         pbar.set_description(f"Avg.Reward: {rolling_reward}")
         agent.update_target()
 
+    # train avg reward log save
+    with open(f"./data/lol/result/{nth_fold}th_fold_reward_mean_log.pickle", "wb") as fw:
+      pickle.dump(avg_reward_log, fw)
 
-def run_cross_validation(dat, train_iter, T, agent_cls, agent_params, mf_params):
+
+def run_cross_validation(dat, train_iter, T, agent_cls, agent_params, mf_params, device):
     """
     Runs cross validation on the provided data.
     :param dat: dataset
@@ -162,16 +206,18 @@ def run_cross_validation(dat, train_iter, T, agent_cls, agent_params, mf_params)
     for i, d in enumerate(dat):  # d:tuple(train_data, test_data)
         agent = agent_cls(*agent_params)
         if agent_cls != RandomAgent:
-            U, V, ids = run_matrix_factorization(d[0], agent.out_size, *mf_params)
-            train(d[0], agent, V, train_iter, T)
-            #mean, std = run_test(d[1], V, agent, T)
-            mean, std, logged_data = run_final_test(d[1], V, agent, T)
+            U, V, ids = run_matrix_factorization(d[0], agent.out_size, device, *mf_params)
+            train(d[0], agent, V, train_iter, T, i+1)
+            agent.save_model()
+            mean, std = run_test(d[1], V, agent, T)
+            # mean, std, logged_data = run_final_test(d[1], V, agent, T)
         else:
             mean, std = run_test_rand(d[0], agent, T)
         means.append(mean)
-
+        with open(f"./data/lol/result/{i+1}th_fold_val_mean_std_log.pickle", "wb") as fw:
+          pickle.dump([mean, std], fw)
         print(f'In fold {i+1}: Mean {mean}')
-        print(f'logged_data: \n')
-        print(logged_data[:10])
+        # print(f'logged_data: \n')
+        # print(logged_data[:10])
     print(f'Avg. Mean: {np.mean(means)}, Std.: {np.std(means)}')
     return np.mean(means)

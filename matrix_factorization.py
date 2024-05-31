@@ -20,10 +20,10 @@ def create_interaction_matrix_full(data, total_item_len):
     return arr, (user_ids, item_ids)
 
 
-def run_matrix_factorization(data, total_item_len, num_iter=4000, lbd=0.01, lr=0.001):
+def run_matrix_factorization(data, total_item_len, device, num_iter=4000, lbd=0.01, lr=0.001):
     """performs default matrix factorization"""
     arr, ids = create_interaction_matrix_full(data, total_item_len)
-    device = torch.device('cuda')
+    device = device
     U = torch.rand(size=(len(ids[0]), 64), requires_grad=True, device=device).float()
     # factorize for all items even if certain items don't occur during training to prevent test time errors
     V = torch.rand(size=(64, total_item_len), requires_grad=True, device=device).float()

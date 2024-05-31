@@ -1,14 +1,16 @@
 from preprocessing import generate_train_test_splits
 from pathlib import Path
 import torch
-from utility import run_cross_validation
+from utility import run_cross_validation, run_final_test, run_test
 import argparse
 from agent import DQNAgent, RandomAgent
-
+from matrix_factorization import run_matrix_factorization
+import pickle
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_iterations', type=int, help='number of iterations', default=2000)
+    parser.add_argument('--num_iterations', type=int, help='number of iterations', default=700) # default=2000
+    parser.add_argument('--test', type=bool, help='Test Mode', default=False)
     parser.add_argument('--path', type=str, default='data/lol/data_frame_new_merged.pickle', help='file location')
     parser.add_argument('--data_type', type=str, default='lol', help='Data passed. Currently supports [ml1m].')
     parser.add_argument('--agent_type', type=str, default='dqn',
@@ -21,7 +23,7 @@ def parse_args():
                         help='Number of training iterations for matrix factorization.')
     parser.add_argument('--lbd_mf', default=0.01, type=float,
                         help='The regularization factor lambda for matrix factorization')
-    parser.add_argument('--cuda', type=bool, default=True, help='Set to True for running on GPU, false for CPU.')
+    parser.add_argument('--cuda', type=bool, default=False, help='Set to True for running on GPU, false for CPU.')
     parser.add_argument('--num_splits', type=int, default=5, help='Number of cross-validation folds.')
     parser.add_argument('--min_interactions_user', type=int, default=100,
                         help='The minimum number of interactions a user should have to be included '
@@ -45,16 +47,14 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
     path = Path(args.path)
-    dat, id_mapping_dict, total_items = generate_train_test_splits(
+    dat, id_mapping_dict, total_items, test_dat = generate_train_test_splits(
         data_path=path,
         data_type=args.data_type,
         number_splits=args.num_splits,
         min_interactions_user=args.min_interactions_user,
         train_pct=args.train_pct)
     device = torch.device('cuda') if args.cuda else torch.device('cpu')
-
     agent_cls = None
     agent_params = None
     if args.agent_type.lower() == 'dqn':
@@ -70,4 +70,27 @@ if __name__ == "__main__":
     mf_params = (args.num_iterations_mf, args.lbd_mf, args.lr_mf)
     print(f"Param: num_iteration:{args.num_iterations}, \
             agent_param:{agent_params}")
-    run_cross_validation(dat, args.num_iterations, args.T, agent_cls, agent_params, mf_params)
+
+    # run cross validation
+    if args.test == False:
+      run_cross_validation(dat, args.num_iterations, args.T, agent_cls, agent_params, mf_params, device)
+    else:
+      # model load and test
+      agent = agent_cls(*agent_params)
+      check_point = torch.load("./data/lol/checkpoints/checkpoint" + "all.tar") 
+      agent.policy.load_state_dict(check_point['policy'])
+      agent.target.load_state_dict(check_point['target'])
+
+      with open(f"./data/lol/data_frame_new_test.pickle", "rb") as fr:
+        test_dat  = pickle.load(fr)
+
+      test_dat.columns = ['user_id', 'item_id', 'rating']
+      U, V, ids = run_matrix_factorization(test_dat, agent.out_size, device, *mf_params)
+      test_reward_mean, test_reward_std, logged_data = run_final_test(test_dat, V, agent, args.T)
+      print(f"test_reward_mean: {test_reward_mean}")
+      print(f"test_reward_std: {test_reward_std}")
+      print(f"logged_data: {logged_data}")
+
+      with open(f"./data/lol/result/test_result.pickle", "wb") as fw:
+        pickle.dump([test_reward_mean, test_reward_std, logged_data], fw)
+

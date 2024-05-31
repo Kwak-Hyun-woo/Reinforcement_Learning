@@ -180,7 +180,7 @@ class LOLUserMDP:
             print("KeyError: The specified key does not exist.")
             meta_score = 0 
         #print(pairing_score)
-        game_score = (meta_score + pairing_score + counter_score)/3
+        game_score = (0.45*meta_score + 0.1*pairing_score + 0.45*counter_score)
         # user's preference score
         max_value = max(self.game_history['rating'])
         min_value = 0
@@ -195,5 +195,4 @@ class LOLUserMDP:
         #print(preference_score)
         total_reward = weight_game * game_score + weight_preference * preference_score
         #print('game_score : %f and preference_score %f', game_score, preference_score)
-        #breakpoint()
         return total_reward.astype(np.float32)
